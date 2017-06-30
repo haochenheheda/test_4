@@ -1,7 +1,7 @@
 '''
     Description: cluster config
 '''
-cluster_current = 3
+cluster_current = 4
 cluster_main = cluster_current
 
 '''
@@ -19,7 +19,7 @@ project = 'f'
           it is clear that the results is not for analysis
         2,the directory to store results data will be cleaned
 '''
-debugging = False
+debugging = True
 
 if debugging is True:
 
@@ -119,7 +119,7 @@ elif project is 'f':
         Description: select mode
         Availible: off_line, on_line, data_processor
     '''
-    mode = 'on_line'
+    mode = 'data_processor'
 
     '''
         Description: if learning v in the model,
@@ -187,7 +187,7 @@ elif project is 'f':
                        minglang_mp4_to_jpg
                        minglang_obdl_cfg
         '''
-        data_processor_id = 'minglang_obdl_cfg'
+        data_processor_id = 'compute_consi'
 
         if data_processor_id is 'compute_consi':
 
@@ -263,7 +263,7 @@ if project is 'g':
     game_dic_all = g_game_dic_all
 if project is 'f':
     use_move_view_lib = 'ziyu'
-    
+
     if data_base is 'vr_new':
         from f_game_dic import f_game_dic_new_all
         game_dic = f_game_dic_new_all # specific game dic
@@ -272,7 +272,7 @@ if project is 'f':
         game_dic = f_game_dic_all # specific game dic
     if if_separate_game_dic :
         game_dic = game_dic[separate_start_game_index_from:separate_start_game_index_to]
-        
+
     my_sigma = (11.75+13.78)/2
     import math
     sigma_half_fov = 51.0 / (math.sqrt(-2.0*math.log(0.5)))
