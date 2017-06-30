@@ -237,6 +237,8 @@ class env_li():
     def data_processor(self):
         from config import data_processor_id
         print('==========================data process start: '+data_processor_id+'================================')
+        if data_processor_id is'compute_consi':
+            print('haha')
         if data_processor_id is 'minglang_mp4_to_yuv':
             print('sssss')
             from config import game_dic_new_all
@@ -341,7 +343,7 @@ class env_li():
 
 
         print('=============================data process end, programe terminate=============================')
-        print(t)
+
 
     def log_thread_config(self):
 
