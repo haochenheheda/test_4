@@ -52,11 +52,11 @@ log_dir = "run_on_line_on_vr_new"
 '''
     Description:if separate game_dic
 '''
-if_separate_game_dic = True
+if_separate_game_dic = False
 
 if if_separate_game_dic :
-    separate_start_game_index_from = 1  #  set the start game index ,availible: 0~~len(game_dic)
-    separate_start_game_index_to = 10  #  set the start game index ,availible: 0~~len(game_dic)
+    separate_start_game_index_from = 0  #  set the start game index ,availible: 0~~len(game_dic)
+    separate_start_game_index_to = 9  #  set the start game index ,availible: 0~~len(game_dic)
 
 
 '''
@@ -187,7 +187,7 @@ elif project is 'f':
                        minglang_mp4_to_jpg
                        minglang_obdl_cfg
         '''
-        data_processor_id = 'compute_consi'
+        data_processor_id = 'compute_direction'
 
         if data_processor_id is 'compute_consi':
 
@@ -205,7 +205,22 @@ elif project is 'f':
                 MaxCenterNum = 4
                 NumDirectionForCluster = 8
                 DirectionInter = 360 / NumDirectionForCluster
+        if data_processor_id is 'compute_direction':
 
+            if project is 'f' and mode is 'data_processor':
+
+                '''
+                    Description: compute_consi config
+                '''
+                speed_gate = 15/180*3.14 # rads per sec
+                fov_degree = 6
+                no_moving_gate = 0.0001
+                compute_lon_inter = fov_degree / 2
+                compute_lat_inter = fov_degree / 2
+                frame_gate = 20
+                MaxCenterNum = 4
+                NumDirectionForCluster = 8
+                DirectionInter = 360 / NumDirectionForCluster
     elif mode is 'on_line':
 
         '''

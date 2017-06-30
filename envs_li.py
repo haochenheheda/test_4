@@ -187,7 +187,7 @@ class env_li():
         self.video_size_heigth = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))
         self.second_total = self.frame_total / self.frame_per_second
         self.data_per_frame = self.data_total / self.frame_total
-
+        self.data_per_second = self.data_total/self.second_total
         '''compute step lenth from data_tensity'''
         from config import data_tensity
         self.second_per_step = max(data_tensity/self.frame_per_second, data_tensity/self.data_per_frame/self.frame_per_second)
@@ -238,7 +238,11 @@ class env_li():
         from config import data_processor_id
         print('==========================data process start: '+data_processor_id+'================================')
         if data_processor_id is'compute_consi':
-            print('haha')
+            cov_on_video,valid_circle_exp_per_frame=compute_consi(self.subjects,self.data_total,self.subjects_total)
+            store_consi(cov_on_video,valid_circle_exp_per_frame,self.env_id)
+        if data_processor_id is'compute_direction':
+            cov_on_video,valid_circle_exp_per_frame=compute_direction(self.subjects,self.data_total,self.subjects_total,self.data_per_second)
+            store_direction(cov_on_video,valid_circle_exp_per_frame,self.env_id)
         if data_processor_id is 'minglang_mp4_to_yuv':
             print('sssss')
             from config import game_dic_new_all
@@ -577,10 +581,11 @@ class env_li():
                                                                        degree_per_step=v_used_to_step)
             elif self.use_move_view_lib is 'ziyu':
                 from move_view_lib import move_view
-                self.cur_lon, self.cur_lat = move_view(cur_lon=self.cur_lon,
-                                                       cur_lat=self.cur_lat,
+                self.cur_lon, self.cur_lat = move_view(cur_lon=self.last_lon,
+                                                       cur_lat=self.last_lat,
                                                        direction=action,
                                                        degree_per_step=v_used_to_step)
+            self.last_action = action
 
             '''produce reward'''
             if self.reward_estimator is 'trustworthy_transfer':
@@ -593,29 +598,15 @@ class env_li():
                 reward = calc_score(self.gt_heatmaps[self.cur_step], cur_heatmap)
 
             if self.mode is 'on_line':
+
                 '''compute MO'''
-                '''
-                self.cur_lon
-                self.cur_lat
-                sefl.subjects[0].data_frame[self.cur_data].p[0] # lon
-                sefl.subjects[0].data_frame[self.cur_data].p[1] # lat
-                self.video_size_width,
-                self.video_size_heigth,
-                self.view_range_lon,
-                self.view_range_lat,
-                '''
                 from MeanOverlap import *
-                FOV_scale = self.view_range_lat*1.0/self.view_range_lon
-                mo_calculator = MeanOverlap(self.video_size_width,self.video_size_heigth,self.view_range_lon,FOV_scale)
+                mo_calculator = MeanOverlap(self.video_size_width,
+                                            self.video_size_heigth,
+                                            65.5,
+                                            3.0/4.0)
                 mo = mo_calculator.calc_mo_deg((self.cur_lon,self.cur_lat),(self.subjects[0].data_frame[self.cur_data].p[0],self.subjects[0].data_frame[self.cur_data].p[1]),is_centered = True)
-                # print("-------------------------------------------------------------------------------------------------------")
-                # print("the predicting center is "+str(self.cur_lon)+"    "+str(self.cur_lat))
-                # print("the ground-truth center is "+str(self.subjects[0].data_frame[self.cur_data].p[0])+"   "+str(self.subjects[0].data_frame[self.cur_data].p[1]))
-                # print("the FOV_x is "+str(self.view_range_lon) )
-                # print("the FOV_y is "+str(self.view_range_lat) )
-                # print("the FOV_scale is " + str(FOV_scale))
-                # print (str(mo))
-                # print("-------------------------------------------------------------------------------------------------------")
+                self.mo_dic_on_cur_episode += [mo]
 
             '''smooth reward'''
             if self.last_action is not None:
@@ -631,35 +622,57 @@ class env_li():
                 reward *= (1.0-(action_difference*(1.0-reward_smooth_discount_to)/(direction_num/2)))
 
             '''record'''
-            self.last_action = action
             self.reward_dic_on_cur_episode += [reward]
 
-            if self.mode is 'on_line':
-                self.mo_dic_on_cur_episode += [mo]
 
             '''
-            if we are predicting and the step has not ran to exceed the cur_training_step,
-            we are actually feeding the model so that we can produce a prediction with the experiences already experienced by the human,
-            not testing the modeling.
-            So we pull the position back to the ground-truth
+                All reward and scores has been computed, we now consider if we want to drawback the position
             '''
-            if (self.mode is 'on_line') and (self.predicting is True) and (self.cur_step > self.cur_training_step):
-                '''online and predicting, lon and lat is updated as subjects' ground-truth'''
-                '''other procedure may not used by the agent, but still implemented to keep the interface unified'''
-                print('predicting run')
-                self.cur_lon = self.subjects[0].data_frame[self.cur_data].p[0]
-                self.cur_lat = self.subjects[0].data_frame[self.cur_data].p[1]
+            if (self.mode is 'on_line'):
 
-            '''after pull the position, get observation'''
-            '''update observation_now'''
+                if self.if_run_baseline is True:
+
+                    '''
+                        if run baseline, should draw back
+                    '''
+                    print('>>>>>>Draw position back>>>>>>>')
+                    self.cur_lon = self.subjects[0].data_frame[self.cur_data].p[0]
+                    self.cur_lat = self.subjects[0].data_frame[self.cur_data].p[1]
+
+                if (self.predicting is True) or (self.if_run_baseline is True):
+
+                    '''
+                        if we are predicting we are actually feeding the model so that we can produce
+                        a prediction with the experiences already experienced by the human.
+                    '''
+                    print('>>>>>>Draw position back>>>>>>>')
+                    self.cur_lon = self.subjects[0].data_frame[self.cur_data].p[0]
+                    self.cur_lat = self.subjects[0].data_frame[self.cur_data].p[1]
+
+            '''
+                after pull the position, get observation
+                update observation_now
+            '''
             self.get_observation()
 
-            '''normally, we donot judge done when we in this'''
+            '''
+                normally, we donot judge done when we in this
+            '''
             done = False
 
-            '''core part for online'''
-
+            '''
+                core part for online
+            '''
             if self.mode is 'on_line':
+
+                if (self.if_run_baseline is True):
+
+                    '''if running baseline, we are always predicting'''
+                    self.predicting = True
+
+                    '''we predict until the last step'''
+                    self.cur_predicting_step = self.step_total - 4
+
 
                 if self.predicting is False:
 
@@ -668,10 +681,12 @@ class env_li():
 
                         '''if step is out of training range'''
 
-                        if (np.mean(self.reward_dic_on_cur_episode) > self.train_to_reward) or (np.mean(self.mo_dic_on_cur_episode) > self.train_to_mo) or (len(self.sum_reward_dic_on_cur_train)>self.train_to_episode) or (self.if_run_baseline is True):
+                        if (np.mean(self.reward_dic_on_cur_episode) > self.train_to_reward) or (np.mean(self.mo_dic_on_cur_episode) > self.train_to_mo) or (len(self.sum_reward_dic_on_cur_train)>self.train_to_episode):
 
                             '''if reward is trained to a acceptable range or trained episode exceed a range'''
                             '''or is running baseline'''
+
+                            print('>>>>>train to an acceptable state')
 
                             '''summary'''
                             summary = tf.Summary()
@@ -708,20 +723,11 @@ class env_li():
                             if self.cur_predicting_step >= (self.step_total-2):
 
                                 '''on line terminating'''
-                                print('on line run meet end, terminate and write done signal')
 
                                 '''record the mo_mean for each subject'''
+                                self.save_mo_result()
 
-                                mo_mean = np.mean(self.mo_on_prediction_dic)
-                                from config import final_log_dir,if_run_baseline
-                                if if_run_baseline:
-                                    from config import baseline_type
-                                    self.record_mo_file_name = baseline_type
-                                else :
-                                    self.record_mo_file_name = "on_line_model"
-                                with open(final_log_dir+self.record_mo_file_name+"_mo_mean.txt","a") as f:
-                                    f.write("%s\tsubject[%s]:\t%s\n"%(self.env_id,self.subject,mo_mean))
-
+                                print('on line run meet end, terminate and write done signal')
                                 self.terminate_this_worker()
 
                         else:
@@ -743,11 +749,11 @@ class env_li():
                         self.reset()
                         done = True
 
-                else:
+                elif self.predicting is True:
 
                     '''if is predicting'''
 
-                    if self.cur_step > self.cur_predicting_step:
+                    if (self.cur_step > self.cur_predicting_step) or (self.if_run_baseline is True):
 
                         '''if cur_step run beyond cur_predicting_step, means already make a prediction on this step'''
 
@@ -777,12 +783,29 @@ class env_li():
                         self.summary_writer.add_summary(summary, self.cur_predicting_step)
                         self.summary_writer.flush()
 
-                        '''tell out side: we are not going to predict'''
-                        self.predicting = False
+                        if self.if_run_baseline is True:
 
-                        '''reset'''
-                        self.reset()
-                        done = True
+                            if self.cur_step > self.cur_predicting_step:
+
+                                '''if we are running baseline and over the cur_predicting_step, terminate here'''
+
+                                '''record the mo_mean for each subject'''
+                                self.save_mo_result()
+
+                                print('on line run meet end, terminate and write done signal')
+                                self.terminate_this_worker()
+
+                        else:
+
+                            '''we are not running baseline'''
+
+                            '''tell out side: we are not going to predict'''
+                            self.predicting = False
+
+                            '''reset'''
+                            self.reset()
+                            done = True
+
 
         if self.mode is 'off_line':
             return self.cur_observation, reward, done, self.cur_cc, self.max_cc, v_lable
@@ -859,3 +882,158 @@ class env_li():
     def save_heatmap(self,heatmap,path,name):
         heatmap = heatmap * 255.0
         cv2.imwrite(path+'/'+name+'.jpg',heatmap)
+
+    def save_mo_result(self):
+
+        '''
+            Description: save mo result to result dir
+        '''
+
+        mo_mean = np.mean(self.mo_on_prediction_dic)
+        from config import final_log_dir,if_run_baseline
+        if if_run_baseline:
+            from config import baseline_type
+            self.record_mo_file_name = baseline_type
+        else :
+            self.record_mo_file_name = "on_line_model"
+        with open(final_log_dir+self.record_mo_file_name+"_mo_mean.txt","a") as f:
+            f.write("%s\tsubject[%s]:\t%s\n"%(self.env_id,self.subject,mo_mean))
+def compute_consi(subjects,num_data_frame,num_subject):
+    print('compute_consi')
+    '''config'''
+    from config import NumDirectionForCluster,frame_gate,fov_degree
+    from config import compute_lat_inter,compute_lon_inter
+    from config import DirectionInter
+    ''''''
+    sum_on_video = np.zeros((NumDirectionForCluster))
+    count_on_video = 0
+    valid_circle_count = 0
+    ''''''
+    for data_frame_i in range(0 + frame_gate, num_data_frame - frame_gate - 1):
+        sum_on_frame = np.zeros((NumDirectionForCluster))
+        count_on_frame=0
+        valid_circle_count_last = valid_circle_count
+        for lon_i in range(-180, 180, compute_lon_inter):
+            for lat_i in range(-90, 90, compute_lat_inter):
+                theta_dic = []
+                for data_frame_i_in_i in range(data_frame_i - frame_gate, data_frame_i + frame_gate + 1):
+                    for subject_i in range(num_subject):
+                        distance = haversine(lon1=lon_i,
+                                             lat1=lat_i,
+                                             lon2=subjects[subject_i].data_frame[data_frame_i_in_i].p[0],
+                                             lat2=subjects[subject_i].data_frame[data_frame_i_in_i].p[1])
+                        if(distance<1.0*(fov_degree*math.pi/180.0)):
+                            if(subjects[subject_i].data_frame[data_frame_i_in_i].theta != 'null'):
+                                theta_dic += [subjects[subject_i].data_frame[data_frame_i_in_i].theta]
+                if(len(theta_dic)>=(NumDirectionForCluster)):
+                    direction_dic = np.zeros((NumDirectionForCluster))
+                    for i in range(NumDirectionForCluster):
+                        direction_dic[i] = 0
+                    detect = False
+                    for theta_i in range(len(theta_dic)):
+                        if((theta_dic[theta_i]>(360.0-DirectionInter/2.0)) or (theta_dic[theta_i]<=(0.0+DirectionInter/2.0))):
+                            direction_dic[0] += 1
+                            detect = True
+                        else:
+                            for direction_i in range(1, NumDirectionForCluster):
+                                if((direction_i*DirectionInter - DirectionInter/2.0)<theta_dic[theta_i]<=(direction_i*DirectionInter + DirectionInter/2.0)):
+                                    direction_dic[direction_i] += 1
+                                    detect = True
+                        if(detect==False):
+                            print('!!!!')
+                            print('!!!!')
+                            print('!!!!')
+                    # print(direction_dic)
+                    direction_dic = np.sort(direction_dic)
+                    # print(direction_dic)
+                    direction_dic = direction_dic / np.sum(direction_dic)
+
+                    sum_on_frame += direction_dic
+                    count_on_frame += 1
+                    valid_circle_count += 1
+
+
+        cov_on_frame = sum_on_frame / count_on_frame
+        sum_on_video += cov_on_frame
+        count_on_video += 1
+        valid_circle_count_thisframe = valid_circle_count - valid_circle_count_last
+        display_string = 'frame\t'+str(data_frame_i)+'\tvalid_circle\t'+str(valid_circle_count_thisframe)
+        for print_i in range(NumDirectionForCluster):
+            display_string += ('\t\t' + str(cov_on_frame[print_i]))
+        print(display_string)
+    cov_on_video = sum_on_video / count_on_video
+    valid_circle_exp_per_frame = valid_circle_count * 1.0 / count_on_video
+    print('compute_over')
+    return cov_on_video,valid_circle_exp_per_frame
+def store_consi(cov_on_video,valid_circle_exp_per_frame,game_dic):
+    print("store_consi_result")
+    '''config'''
+    from config import fov_degree,no_moving_gate,compute_lon_inter,compute_lat_inter
+    from config import frame_gate,MaxCenterNum,NumDirectionForCluster
+    print_string='\n'
+    print_string += '\tgame_id\t'+str(game_dic)+'\tMaxCenterNum\t'+str(MaxCenterNum)+'\tvalid_circle_exp_per_frame\t'+str(valid_circle_exp_per_frame)
+    display_string = ''
+    for print_i in range(NumDirectionForCluster):
+        print_string += ('\t' + str(cov_on_video[print_i]))
+        display_string += ('\t' + str(cov_on_video[print_i]))
+    print(display_string)
+    f = open('../result/consistence_result.txt','a')
+    f.write(print_string)
+    f.close()
+    print('store_over')
+def compute_direction(subjects,num_data_frame,num_subject,data_per_second):
+    print('compute_direction')
+    '''config'''
+    from config import NumDirectionForCluster,frame_gate,fov_degree
+    from config import compute_lat_inter,compute_lon_inter
+    from config import DirectionInter,speed_gate
+    from suppor_lib import compute_average_of_angle
+    ''''''
+    sum_on_video = 0
+    count_on_video = 0
+    valid_circle_count = 0
+    ''''''
+    for data_frame_i in range(0 + frame_gate, num_data_frame - frame_gate - 1):
+        sum_on_frame = 0
+        count_on_frame=0
+        valid_circle_count_last = valid_circle_count
+        for lon_i in range(-180, 180, compute_lon_inter):
+            for lat_i in range(-90, 90, compute_lat_inter):
+                theta_dic = []
+                for data_frame_i_in_i in range(data_frame_i - frame_gate, data_frame_i + frame_gate + 1):
+                    for subject_i in range(num_subject):
+                        distance = haversine(lon1=lon_i,
+                                             lat1=lat_i,
+                                             lon2=subjects[subject_i].data_frame[data_frame_i_in_i].p[0],
+                                             lat2=subjects[subject_i].data_frame[data_frame_i_in_i].p[1])
+                        if distance<1.0*(fov_degree*math.pi/180.0) and subjects[subject_i].data_frame[data_frame_i_in_i].v>speed_gate/data_per_second:
+                            if(subjects[subject_i].data_frame[data_frame_i_in_i].theta != 'null'):
+                                theta_dic += [subjects[subject_i].data_frame[data_frame_i_in_i].theta]
+                if(len(theta_dic)>=(NumDirectionForCluster)):
+                    from suppor_lib import compute_deviation_of_theta
+                    sum_on_frame += compute_deviation_of_theta(theta_dic)
+                    count_on_frame += 1
+                    valid_circle_count += 1
+
+        cov_on_frame = sum_on_frame / count_on_frame
+        sum_on_video += cov_on_frame
+        count_on_video += 1
+        valid_circle_count_thisframe = valid_circle_count - valid_circle_count_last
+        display_string = 'sum_on_frame\t'+str(cov_on_frame)+'\tvalid_circle\t'+str(valid_circle_count_thisframe)
+        print(display_string)
+    cov_on_video = sum_on_video / count_on_video
+    valid_circle_exp_per_frame = valid_circle_count * 1.0 / count_on_video
+    print('compute_over')
+    return cov_on_video,valid_circle_exp_per_frame
+def store_direction(cov_on_video,valid_circle_exp_per_frame,game_dic):
+    print("store_consi_result")
+    '''config'''
+    from config import fov_degree,no_moving_gate,compute_lon_inter,compute_lat_inter
+    from config import frame_gate,MaxCenterNum,NumDirectionForCluster
+    print_string='\n'
+    print_string += '\tgame_id\t'+str(game_dic)+'\tMaxCenterNum\t'+str(MaxCenterNum)+'\tvalid_circle_exp_per_frame\t'+str(valid_circle_exp_per_frame)
+    print_string += '\tStandard Deviation\t'+str(cov_on_video)
+    f = open('../result/direction_result.txt','a')
+    f.write(print_string)
+    f.close()
+    print('store_over')
