@@ -8,7 +8,7 @@ cluster_main = cluster_current
     Description: which project you want to run
     Availible: g, f
 '''
-project = 'g'
+project = 'f'
 
 '''
     Description: set True if you are debugging
@@ -27,12 +27,12 @@ if debugging is True:
         Description: cut game_dic to a smaller range to debug
         Availible:
     '''
-    debugging_range = [0,1]
+    debugging_range = [50,51]
 
 '''
     Description: if restore model
 '''
-if_restore_model = True
+if_restore_model = False
 
 if if_restore_model is True:
 
@@ -89,7 +89,7 @@ if_mix_exp = False
 if_reward_auto_normalize = False
 
 
-if project is 'f':
+if project is 'g':
 
     '''
         Description: specific settings for project g
@@ -117,7 +117,7 @@ elif project is 'f':
 
     if data_base is 'vr_new':
         from f_game_dic import f_game_dic_new_all, f_game_dic_new_test
-        game_dic = f_game_dic_new_test # specific game dic
+        game_dic = f_game_dic_new_all # specific game dic
     elif data_base is 'vr':
         from f_game_dic import f_game_dic_all
         game_dic = f_game_dic_all # specific game dic
@@ -194,7 +194,7 @@ elif project is 'f':
                        minglang_mp4_to_jpg
                        minglang_obdl_cfg
         '''
-        data_processor_id = 'compute_direction'
+        data_processor_id = 'on_line_finding'
 
         if data_processor_id is 'compute_consi':
 
@@ -220,6 +220,23 @@ elif project is 'f':
                     Description: compute_consi config
                 '''
                 speed_gate = 15/180*3.14 # rads per sec
+                fov_degree = 6
+                no_moving_gate = 0.0001
+                compute_lon_inter = fov_degree / 2
+                compute_lat_inter = fov_degree / 2
+                frame_gate = 20
+                MaxCenterNum = 4
+                NumDirectionForCluster = 8
+                DirectionInter = 360 / NumDirectionForCluster
+        if data_processor_id is 'on_line_finding':
+
+            if project is 'f' and mode is 'data_processor':
+
+                '''
+                    Description: compute_consi config
+                '''
+                segmentation = 10
+                move_gate =  1
                 fov_degree = 6
                 no_moving_gate = 0.0001
                 compute_lon_inter = fov_degree / 2
@@ -306,7 +323,8 @@ if project is 'f':
     if mode is 'off_line' or mode is 'data_processor':
         '''off line run all video together, should constrain the game_dic'''
         if num_workers_one_run_max is not -1:
-            game_dic = game_dic[0:num_workers_one_run_max]
+            #game_dic = game_dic[0:num_workers_one_run_max]
+            x=1
     if mode is 'on_line':
         num_workers_one_run = num_workers_one_run_proper
         if debugging is True:

@@ -64,6 +64,7 @@ def create_tmux_commands(session, logdir):
 
         return cmds
     else:
+        print config.game_dic
         base_cmd = [
             'CUDA_VISIBLE_DEVICES=', sys.executable, 'worker.py',
             '--log-dir', logdir, '--env-id', config.game_dic[0],

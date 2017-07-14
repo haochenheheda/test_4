@@ -245,6 +245,8 @@ class env_li():
         if data_processor_id is'compute_direction':
             cov_on_video,valid_circle_exp_per_frame=compute_direction(self.subjects,self.data_total,self.subjects_total,self.data_per_second)
             store_direction(cov_on_video,valid_circle_exp_per_frame,self.env_id)
+        if data_processor_id is'on_line_finding':
+            compute_direction_change(self.subjects,self.data_total,self.subjects_total,self.data_per_second,1)
         if data_processor_id is 'minglang_mp4_to_yuv':
             print('sssss')
             from config import game_dic_new_all
@@ -1039,3 +1041,94 @@ def store_direction(cov_on_video,valid_circle_exp_per_frame,game_dic):
     f.write(print_string)
     f.close()
     print('store_over')
+def compute_direction_change(subjects,num_data_frame,num_subject,data_per_second,subjects_id):
+    print('compute_direction_change')
+    '''config'''
+    from config import NumDirectionForCluster,frame_gate,fov_degree
+    from config import compute_lat_inter,compute_lon_inter
+    from config import DirectionInter,segmentation,move_gate
+    ''''''
+    position_changed_dic1 = []
+    position_changed_dic2 = []
+    position_changed_dic3 = []
+    position_changed_dic4 = []
+    position_changed_dic5 = []
+    changed_num_dic1 = []
+    changed_num_dic2 = []
+    changed_num_dic3 = []
+    changed_num_dic4 = []
+    changed_num_dic5 = []
+    ''''''
+    # for data_frame_i in range(0 , num_data_frame - 4):
+    #     position_changed_dic += [haversine(lon1=subjects[subjects_id].data_frame[data_frame_i+3].p[0],
+    #                          lat1=subjects[subjects_id].data_frame[data_frame_i+3].p[1],
+    #                          lon2=subjects[subjects_id].data_frame[data_frame_i].p[0],
+    #                          lat2=subjects[subjects_id].data_frame[data_frame_i].p[1])]
+    # print position_changed_dic
+    # for data_frame_i in range(0 , num_data_frame - segmentation - 4,segmentation):
+    #     x = 0
+    #     for i in range(0,segmentation):
+    #         if(position_changed_dic[data_frame_i+i]>move_gate):
+    #             x += 1
+    #     changed_num_dic +=[x]
+    # #print angle_changed_dic
+    # print changed_num_dic
+    for data_frame_i in range(0 , num_data_frame - segmentation):
+        position_changed_dic1 += [haversine(lon1=subjects[subjects_id].data_frame[data_frame_i+segmentation].p[0],
+                                 lat1=subjects[subjects_id].data_frame[data_frame_i+segmentation].p[1],
+                                 lon2=subjects[subjects_id].data_frame[data_frame_i].p[0],
+                                 lat2=subjects[subjects_id].data_frame[data_frame_i].p[1])]
+        position_changed_dic2 += [haversine(lon1=subjects[subjects_id+1].data_frame[data_frame_i+segmentation].p[0],
+                                 lat1=subjects[subjects_id+1].data_frame[data_frame_i+segmentation].p[1],
+                                 lon2=subjects[subjects_id+1].data_frame[data_frame_i].p[0],
+                                 lat2=subjects[subjects_id+1].data_frame[data_frame_i].p[1])]
+        position_changed_dic3 += [haversine(lon1=subjects[subjects_id+2].data_frame[data_frame_i+segmentation].p[0],
+                                 lat1=subjects[subjects_id+2].data_frame[data_frame_i+segmentation].p[1],
+                                 lon2=subjects[subjects_id+2].data_frame[data_frame_i].p[0],
+                                 lat2=subjects[subjects_id+2].data_frame[data_frame_i].p[1])]
+        position_changed_dic4 += [haversine(lon1=subjects[subjects_id+3].data_frame[data_frame_i+segmentation].p[0],
+                                 lat1=subjects[subjects_id+3].data_frame[data_frame_i+segmentation].p[1],
+                                 lon2=subjects[subjects_id+3].data_frame[data_frame_i].p[0],
+                                 lat2=subjects[subjects_id+3].data_frame[data_frame_i].p[1])]
+        position_changed_dic5 += [haversine(lon1=subjects[subjects_id+4].data_frame[data_frame_i+segmentation].p[0],
+                                 lat1=subjects[subjects_id+4].data_frame[data_frame_i+segmentation].p[1],
+                                 lon2=subjects[subjects_id+4].data_frame[data_frame_i].p[0],
+                                 lat2=subjects[subjects_id+4].data_frame[data_frame_i].p[1])]
+    max_changed = max(position_changed_dic1)+max(position_changed_dic2)+max(position_changed_dic3)+max(position_changed_dic4)+max(position_changed_dic5)
+    move_gate = max_changed/25
+    for data_frame_i in range(0 , num_data_frame - segmentation-1 ,segmentation):
+        x = 0
+        for i in range(0,segmentation):
+            if(position_changed_dic1[data_frame_i+i]>move_gate):
+                x += 1
+        changed_num_dic1 +=[x]
+    for data_frame_i in range(0 , num_data_frame - segmentation-1 ,segmentation):
+        x = 0
+        for i in range(0,segmentation):
+            if(position_changed_dic2[data_frame_i+i]>move_gate):
+                x += 1
+        changed_num_dic2 +=[x]
+    for data_frame_i in range(0 , num_data_frame - segmentation-1 ,segmentation):
+        x = 0
+        for i in range(0,segmentation):
+            if(position_changed_dic3[data_frame_i+i]>move_gate):
+                x += 1
+        changed_num_dic3 +=[x]
+    for data_frame_i in range(0 , num_data_frame - segmentation-1 ,segmentation):
+        x = 0
+        for i in range(0,segmentation):
+            if(position_changed_dic4[data_frame_i+i]>move_gate):
+                x += 1
+        changed_num_dic4 +=[x]
+    for data_frame_i in range(0 , num_data_frame - segmentation-1 ,segmentation):
+        x = 0
+        for i in range(0,segmentation):
+            if(position_changed_dic5[data_frame_i+i]>move_gate):
+                x += 1
+        changed_num_dic5 +=[x]
+    print changed_num_dic1
+    print changed_num_dic2
+    print changed_num_dic3
+    print changed_num_dic4
+    print changed_num_dic5
+    print ('compute over')
